@@ -66,35 +66,50 @@
           </div>
       </nav>
         <!-- Section-->
-        <section class="py-5">
+        <section class="py-5">  
           {% if isDisplay  %} 
+          <h1 class="navbar-brand-center">The are matches connected to this player: {{ player.full_name }}</h1>
           <input class="my-form-control" type="text" placeholder="Search" id="search-text" onkeyup="tableSearch()">
           <div class="container px-4 px-lg-5 mt-5">
               <table class="table" id="info-table">
                     <thead class="thead-dark">
                       <tr>
-                        <th scope="col">Prediction Number</th>
-                        <th scope="col">Prediction Match Name</th>
-                        <th scope="col">Prediction Status Code</th>
-                        <th scope="col">Prediction Result</th>
-                        <th scope="col">Prediction Date</th>
+                        <th scope="col">Match Name</th>
+                        <th scope="col">Match Desc</th>
+                        <th scope="col">Match Date</th>
+                        <th scope="col">First Player Full Name</th>
+                        <th scope="col">Second Player Full Name</th>
+                        <th scope="col">Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                    {% for i in predictions %}
+                    {% for i in matches %}
                       <tr>
-                        <td> {{ i.user_prediction_id }}</td>
                         <td> {{ i.match_name }}</td>
-                        <td> {{ i.prediction_status_code }}</td>
-                        <td> {{ i.prediction_result }}</td>
-                        <td> {{ i.prediction_date }}</td>
+                        <td> {{ i.match_desc }}</td>
+                        <td> {{ i.match_date }}</td>
+                        <td> {{ i.first_player_full_name }}</td>
+                        <td> {{ i.second_player_full_name }}</td>
+                        {% if user.predictions > 0 %} 
+                          {% if i.is_predicted > 0 %} 
+                            <td> Already predicted</td>
+                          {% else %}
+                            <td>
+                              <div class="card-footer p-4 pt-0 border-top-0 bg-transparent">
+                                <div class="text-center"><a class="btn btn-outline-dark mt-auto" href="{% url 'prediction_confirm' i.match_name %}">Predict</a></div>
+                              </div>
+                            </td>
+                          {% endif %}
+                        {% else %}
+                        <td> You reach your prediction limit</td>
+                        {% endif %}
                       </tr>
                     {% endfor %} 
                     </tbody>
                   </table>
             </div>
             {% else %}
-            <h1 class="navbar-brand-center">You haven't predictions yet...</h1>
+            <h1 class="navbar-brand-center">This player: {{ player.full_name }} haven't current matches...</h1>
             {% endif %}
         </section>
         <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
