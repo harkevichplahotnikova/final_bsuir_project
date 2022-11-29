@@ -2,10 +2,14 @@ from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect
 from django.contrib.auth import authenticate, login, logout
-from myapp.models import get_subscription_types, get_players, get_matches, get_current_user_email, get_predictions, get_subscription_types_by_id, insert_new_user_sub, get_matches_by_name, insert_new_user_prediction,get_subs_analysis, get_current_user_predictions_amount, get_current_user_subscription
+from myapp.models import get_subscription_types, get_players, get_matches, get_current_user_email, get_predictions, get_subscription_types_by_id, insert_new_user_sub, get_matches_by_name, insert_new_user_prediction,get_subs_analysis, get_current_user_predictions_amount, get_current_user_subscription, get_matches_by_player_id, get_players_by_id, get_subs_analysis_by_date, load_new_today_matches
 from django.contrib.auth.models import User
+import io
+from django.http import FileResponse
+from reportlab.pdfgen import canvas
 
 def test_view(request):
+    load_new_today_matches()
     subscription_ids, subscription_types, subscription_descs, subscription_prices = get_subscription_types()
     subscriptions = []
     for i in range(len(subscription_ids)):
@@ -148,7 +152,7 @@ def register_operation_view(request):
         else:
             return HttpResponseRedirect('/')
 
-
+@login_required(login_url='/login')
 def subscriptions_view(request, id):
     subscription_ids, subscription_types, subscription_prices = get_subscription_types_by_id(id)
     subscriptions = []
@@ -205,5 +209,69 @@ def prediction_confirm_operation_view(request, name):
 
 def analysis_view(request):
     raw_context = get_subs_analysis()
+    print(raw_context)
+    return render(request, 'analysis.html', {'values': raw_context})
+
+
+def matches_by_player_view(request, id):
+    raw_context = get_matches_by_player_id(id)
+    matches = []
+    for i in range(len(raw_context)):
+        matches.append({ 'match_id': raw_context[i][0],
+                'match_name': raw_context[i][1],
+                'match_desc': raw_context[i][2],
+                'match_date': raw_context[i][3],
+                'first_player_full_name': raw_context[i][4],
+                'second_player_full_name': raw_context[i][5],
+                'player_full_name': raw_context[i][6]
+                })
+    raw_user_context = get_current_user_email(request.user.id)
+    user ={}
+    for i in range(len(raw_user_context)):
+        user['id'] = raw_user_context[i][0]
+        user['email'] = raw_user_context[i][1]
+    raw_user_context = get_current_user_predictions_amount(request.user.id)
+    user['predictions'] = raw_user_context[0][0]
+
+    raw_player_context = get_players_by_id(id)
+    player ={}
+    player['full_name'] = raw_player_context[0][0]
+    isDisplay = 0
+    if len(matches) > 0:
+        isDisplay = 1
+    context = { 'matches' : matches,
+                'user' : user,
+                'player': player,
+                'isDisplay': isDisplay}
+    return render(request, 'players_by_id.html', context)
+
+
+def subscription_download_view(request):
+    # Create a file-like buffer to receive PDF data.
+    buffer = io.BytesIO()
+
+    # Create the PDF object, using the buffer as its "file."
+    p = canvas.Canvas(buffer)
+
+    # Draw things on the PDF. Here's where the PDF generation happens.
+    # See the ReportLab documentation for the full list of functionality.
+    p.drawString(200, 800, "Hello world")
+    p.drawString(200, 780, "Hello world")
+    # Close the PDF object cleanly, and we're done.
+    p.showPage()
+    p.save()
+
+    # FileResponse sets the Content-Disposition header so that browsers
+    # present the option to save the file.
+    buffer.seek(0)
+    return FileResponse(buffer, as_attachment=True, filename='hello.pdf')
+
+
+
+def analysis_operation_view(request):
+    print(request.POST)
+    date_from = request.POST['datefrom']
+    date_to = request.POST['dateto']
+    raw_context = get_subs_analysis_by_date(date_from, date_to)
     print(raw_context)
     return render(request, 'analysis.html', {'values': raw_context})
