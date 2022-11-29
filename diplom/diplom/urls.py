@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from myapp.views import test_view, players_view, matches_view, predictions_view, logout_view, login_view, login_operation_view, register_view, register_operation_view, subscriptions_view, confirm_sub_view, prediction_confirm_view, prediction_confirm_operation_view, analysis_view
+from myapp.views import test_view, players_view, matches_view, predictions_view, logout_view, login_view, login_operation_view, register_view, register_operation_view, subscriptions_view, confirm_sub_view, prediction_confirm_view, prediction_confirm_operation_view, analysis_view, matches_by_player_view, subscription_download_view, analysis_operation_view
 
 
 
@@ -38,5 +38,8 @@ urlpatterns = [
     path('confirm_operation/<int:id>/', confirm_sub_view, name='confirm_operation'),
     path('prediction_confirm/<path:name>/', prediction_confirm_view, name='prediction_confirm'),
     path('prediction_confirm_operation/<path:name>/', prediction_confirm_operation_view, name='prediction_confirm_operation'),
-    path('analysis', analysis_view, name='analysis')
+    path('analysis', analysis_view, name='analysis'),
+    path('players/<int:id>/', matches_by_player_view, name='players_by_id'),
+    path('subscription_pdf', subscription_download_view, name='subscription_pdf'),
+    path('analysis_operation', analysis_operation_view, name='analysis_operation'),
 ]

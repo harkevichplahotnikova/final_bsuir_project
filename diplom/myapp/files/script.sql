@@ -1,3 +1,203 @@
+grant SELECT ANY DICTIONARY to DJANGO
+
+grant all privileges to DJANGO;
+
+
+grant sysdba to DJANGO;
+
+
+GRANT DBA TO DJANGO WITH ADMIN OPTION;
+
+
+GRANT DBA TO DJANGO;
+
+
+drop table t_subscription_type;
+create table t_subscription_type (
+    type_id number,
+    type_name varchar2(500),
+    type_desc varchar2(2000),
+    type_price decimal (5,2),
+    prediction_amount number,
+    constraint pk_type_id primary key (type_id)
+);
+
+
+
+insert into t_subscription_type
+(
+type_id,
+type_name,
+type_desc,
+type_price,
+prediction_amount
+)
+values ( 1, 'Trial', 'can be you first subscription, free for 7 days, 2 predictions per day', 0, 2); 
+
+
+
+
+insert into t_subscription_type
+(
+type_id,
+type_name,
+type_desc,
+type_price,
+prediction_amount
+)
+values (2, 'Standart', 'valid for 30 days, 20 predictions per day', 4.99, 20);
+
+
+
+insert into t_subscription_type
+(
+type_id,
+type_name,
+type_desc,
+type_price,
+prediction_amount
+)
+values (3, 'Gold','valid for 30 days, 50 predictions per day', 9.99, 50);
+
+
+insert into t_subscription_type
+(
+type_id,
+type_name,
+type_desc,
+type_price,
+prediction_amount
+)
+values (4, 'Platinum','valid for 30 days, 100 predictions per day', 17.99, 100);
+
+
+commit;
+
+
+
+drop table t_player;
+create table t_player (
+    player_id number,
+    player_first_name varchar2(500),
+    player_last_name varchar2(500),
+    player_full_name varchar2(500),
+    player_country varchar2(500),
+    player_gender  varchar2(500),
+    player_height  number,
+    player_weight  number,
+    constraint pk_player_id primary key (player_id)
+);
+
+commit;
+
+
+drop table t_match
+create table t_match (
+    match_id number,
+    match_name varchar2(500),
+    match_desc varchar2(500),
+    match_date number,
+    first_player_full_name varchar2(500),
+    second_player_full_name varchar2(500),
+    constraint pk_match_id primary key (match_id)
+);
+
+
+
+
+
+
+
+drop table t_prediction
+create table t_prediction (
+    prediction_id number,
+    user_id number,
+    user_prediction_id number,
+    match_name varchar2(500),
+    prediction_status_code varchar2(500),
+    prediction_result varchar2(500),
+    prediction_date number,
+    constraint pk_prediction_id primary key (prediction_id)
+);
+
+
+
+create table t_subscription(
+    subscription_id number,
+    subscription_type_id number,
+    user_id number,
+    subscription_start_date number,
+    subscription_end_date   number,
+    constraint pk_subscription_id primary key (subscription_id)
+);
+
+ 
+     
+DELETE FROM t_player WHERE player_id in (SELECT ID FROM raw_players_from_live_api)
+
+INSERT INTO t_player 
+(
+    player_id,
+    player_first_name,
+    player_last_name,
+    player_full_name,
+    player_country,
+    player_gender,
+    player_height,
+    player_weight
+)
+select id,
+    first_name,
+    last_name,
+    full_name,
+    country,
+    'Male',
+    0,
+    0
+from raw_players_from_live_api;
+
+
+commit;
+
+
+drop table t_max_date;
+create table t_max_date (
+    max_date date
+);
+
+
+
+insert into t_max_date
+values(SYSDATE - 1);
+
+
+
+
+create table t_neural_predictions (
+    id    NUmber,                           
+    first_player_name  varchar2(500),                   
+    second_player_name  varchar2(500),                      
+    prediction varchar2(500)
+);
+
+
+DELETE FROM t_neural_predictions;
+
+INSERT INTO t_neural_predictions (
+    id,
+    first_player_name,                   
+    second_player_name,                      
+    prediction
+)
+SELECT ID,
+       first_player_name,
+       second_player_name,
+       first_player_name || ' win with probability 0' || probability as prediction
+FROM raw_predictions;
+
+commit;
+
+
 CREATE OR REPLACE PROCEDURE SP_GET_SUBSCRIPTION_TYPES(type_id number, p_results OUT SYS_REFCURSOR)
 AS
 BEGIN
@@ -94,17 +294,6 @@ END;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 CREATE OR REPLACE PROCEDURE SP_GET_SUBSCRIPTION_TYPES_BY_ID(p_type_id number, p_results OUT SYS_REFCURSOR)
 AS
 BEGIN
@@ -193,8 +382,11 @@ VALUES (
     p_user_id,
     (select nvl(max(user_prediction_id),0) from t_prediction where user_id = p_user_id) + 1,
     p_match_name,
-    'in progress',
-    'in progress',
+    'success',
+    (SELECT prediction 
+        from t_neural_predictions 
+        WHERE UPPER(first_player_name) = (SELECT UPPER(FIRST_PLAYER_FULL_NAME) FROM T_MATCH WHERE MATCH_NAME = p_match_name) 
+          AND UPPER(second_player_name) = (SELECT UPPER(SECOND_PLAYER_FULL_NAME) FROM T_MATCH WHERE MATCH_NAME = p_match_name)),
     TO_CHAR(CURRENT_TIMESTAMP, 'YYYYMMDD')
 );
 END;
@@ -268,24 +460,6 @@ END;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 CREATE OR REPLACE PROCEDURE SP_GET_CURRENT_USER_SUBSCRIPTION(p_user_id number, p_results OUT SYS_REFCURSOR)
 AS
 BEGIN
@@ -316,7 +490,8 @@ SELECT
     match_desc,
     match_date,
     first_player_full_name,
-    second_player_full_name
+    second_player_full_name,
+    player_full_name
 FROM t_match
 JOIN t_player on  first_player_full_name = player_full_name or second_player_full_name = player_full_name
 WHERE player_id = p_player_id;
@@ -324,114 +499,92 @@ END;
 /
 
 
-drop table t_subscription_type;
-create table t_subscription_type (
-    type_id number,
-    type_name varchar2(500),
-    type_desc varchar2(2000),
-    type_price decimal (5,2),
-    prediction_amount number,
-    constraint pk_type_id primary key (type_id)
-);
+CREATE OR REPLACE PROCEDURE SP_GET_PLAYERS_BY_ID(p_player_id number, p_results OUT SYS_REFCURSOR)
+AS
+BEGIN
+OPEN p_results FOR
+SELECT     
+    player_full_name
+FROM t_player
+WHERE player_id = p_player_id;
+END;
+/
 
 
 
-insert into t_subscription_type
-(
-type_id,
-type_name,
-type_desc,
-type_price,
-prediction_amount
+
+
+
+CREATE OR REPLACE PROCEDURE SP_GET_SUBSCRIPTION_ANALYSIS_BY_DATE(p_date_from number, p_date_to number, p_results OUT SYS_REFCURSOR)
+AS
+BEGIN
+OPEN p_results FOR
+SELECT   
+    c.number_date,
+    COUNT(t.subscription_id) as total_subs,
+    COUNT(CASE WHEN t.subscription_start_date = c.number_date then t.subscription_id else null end) as start_subs,
+    COUNT(CASE WHEN t.subscription_end_date = c.number_date then t.subscription_id else null end) as end_subs
+FROM t_subscription t
+JOIN calendar c on c.number_date between t.subscription_start_date and t.subscription_end_date
+WHERE c.number_date between p_date_from and p_date_to 
+GROUP BY c.number_date;
+END;
+/
+
+
+
+
+
+
+CREATE OR REPLACE PROCEDURE SP_GET_NEW_DATE_FLAG(p_user_id number, p_results OUT SYS_REFCURSOR)
+AS
+BEGIN
+OPEN p_results FOR
+SELECT (SYSDATE - max_date)
+FROM t_max_date t;
+END;
+/
+
+
+
+
+CREATE OR REPLACE PROCEDURE sp_update_max_date(
+    p_user_id NUMBER,
+    p_user_id_2 NUMBER
 )
-values ( 1, 'Trial', 'can be you first subscription, free for 7 days, 2 predictions per day', 0, 2); 
-
-
-
-
-insert into t_subscription_type
-(
-type_id,
-type_name,
-type_desc,
-type_price,
-prediction_amount
-)
-values (2, 'Standart', 'valid for 30 days, 20 predictions per day', 4.99, 20);
-
-
-
-insert into t_subscription_type
-(
-type_id,
-type_name,
-type_desc,
-type_price,
-prediction_amount
-)
-values (3, 'Gold','valid for 30 days, 50 predictions per day', 9.99, 50);
-
-
-insert into t_subscription_type
-(
-type_id,
-type_name,
-type_desc,
-type_price,
-prediction_amount
-)
-values (4, 'Platinum','valid for 30 days, 100 predictions per day', 17.99, 100);
-
-
-drop table t_player;
-create table t_player (
-    player_id number,
-    player_first_name varchar2(500),
-    player_last_name varchar2(500),
-    player_full_name varchar2(500),
-    player_country varchar2(500),
-    player_gender  varchar2(500),
-    player_height  number,
-    player_weight  number,
-    constraint pk_player_id primary key (player_id)
-);
-
-
-drop table t_match
-create table t_match (
-    match_id number,
-    match_name varchar2(500),
-    match_desc varchar2(500),
-    match_date number,
-    first_player_full_name varchar2(500),
-    second_player_full_name varchar2(500),
-    constraint pk_match_id primary key (match_id)
-);
-
-
-
-
-drop table t_prediction
-create table t_prediction (
-    prediction_id number,
-    user_id number,
-    user_prediction_id number,
-    match_name varchar2(500),
-    prediction_status_code varchar2(500),
-    prediction_result varchar2(500),
-    prediction_date number,
-    constraint pk_prediction_id primary key (prediction_id)
-);
-
-
-create table t_subscription(
-    subscription_id number,
-    subscription_type_id number,
-    user_id number,
-    subscription_start_date number,
-    subscription_end_date   number,
-    constraint pk_subscription_id primary key (subscription_id)
-);
+IS
+    p_date DATE; 
+BEGIN
+    SELECT MAX(max_date) 
+    INTO p_date
+    FROM t_max_date t;
+    
+    IF SYSDATE  - p_date > 1 THEN
+        UPDATE t_max_date SET max_date = SYSDATE;
+        
+        insert into t_match
+        (
+            match_id,
+            match_name,
+            match_desc,
+            match_date,
+            first_player_full_name,
+            second_player_full_name
+        )
+        SELECT r.id,
+               r.match_name,
+               r.match_desc,
+               to_number(to_char(to_date(SUBSTR(r.match_date,1,10), 'YYYY-MM-DD'), 'YYYYMMDD')) as match_date,
+               t1.player_full_name,
+               t2.player_full_name
+        FROM raw_matches_from_live_api r
+        JOIN t_player t1 on r.first_player_id = t1.player_id
+        JOIN t_player t2 on r.second_player_id = t2.player_id;
+        commit;
+    END IF;
+    
+    
+END;
 
 
 
